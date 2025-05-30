@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Callable, Dict, override, Set, Union, Self
+from typing import Any, Callable, Dict, get_origin, override, Set, Union, Self, get_args
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -10,6 +10,28 @@ from .utils.save_file import save_to_file
 
 class DataModel(BaseModel):
     __subscribers: Dict[str, Set[Callable]] = defaultdict(set)  # field: callback
+
+    def _is_valid_type(self, value: Any, field_type: type) -> bool:
+        """
+        检查值是否符合字段类型定义，处理Optional/Union类型
+        """
+        # 处理None值
+        if value is None:
+            # 检查字段是否允许None(Optional[T] 或 Union[T, None])
+            origin = get_origin(field_type)
+            if origin is Union:
+                return type(None) in get_args(field_type)
+            return field_type is type(None)  # 直接是None类型
+
+        # 处理实际类型检查
+        try:
+            # 使用pydantic的内部类型检查
+            if isinstance(field_type, type):
+                return isinstance(value, field_type)
+            elif get_origin(field_type) is Union:
+                return type(value) in get_args(field_type)
+        except TypeError:
+            return False  # 类型检查失败
 
     def subscribe(self, field: str, callback: Callable) -> None:
         """订阅字段变化的回调函数。
@@ -62,27 +84,27 @@ class DataModel(BaseModel):
     @override
     def __setattr__(self, name: str, value: Any, /) -> None:
         """
-        不允许修改不存在的字段，
-        不允许修改字段类型，
-        并在修改字段值时触发回调函数。
+        不允许修改不存在的字段,
+        不允许修改字段类型,
+        允许None值(如果字段定义为Optional[T]或Union[T, None]),
+        并在修改字段值时触发回调函数.
 
         Args:
             name (str): 字段名称
             value (Any): 修改后的值
 
         Raises:
-            TypeError: 新字段类型与旧字段类型不一致
+            TypeError: 字段类型不匹配
             AttributeError: 字段不存在
         """
         if name in self.__class__.model_fields:
-            old_value = getattr(self, name)
-            if type(value) is not type(old_value):
+            field_type = self.__class__.model_fields[name].annotation  # 获取字段类型
+            # 检查新值是否符合字段类型
+            if not self._is_valid_type(value, field_type):
                 raise TypeError(
-                    f"Field <{name}> type {type(value)} is not compatible with {type(old_value)}"
+                    f"Field <{name}> type {type(value)} is not compatible with {field_type}"
                 )
             super().__setattr__(name, value)
-            if old_value == value:
-                return
             for callback in self.__subscribers[name]:
                 callback(value)
         else:
