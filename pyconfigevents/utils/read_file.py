@@ -5,6 +5,7 @@ from pathlib import Path
 import pytomlpp as toml
 import yaml
 
+
 def read_config(file_path: Union[str, Path]) -> dict:
     """Currently supports toml and json format configuration files
 
@@ -24,14 +25,17 @@ def read_config(file_path: Union[str, Path]) -> dict:
     else:
         raise ValueError(f"Config file {file_path} is not a toml or json file")
 
+
 def _read_toml(file_path: Path) -> dict:
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return toml.load(f)
 
+
 def _read_json(file_path: Path) -> dict:
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return json.load(f)
 
+
 def _read_yaml(file_path: Path) -> dict:
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return yaml.load(f, yaml.Loader)
