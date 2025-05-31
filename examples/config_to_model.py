@@ -3,25 +3,25 @@
 """
 配置文件转模型示例
 
-这个示例展示了如何从JSON和TOML配置文件读取数据并转换为DataModel对象。
+这个示例展示了如何从JSON和TOML配置文件读取数据并转换为RootModel对象。
 """
 
 import os
 import tempfile
 import json
 
-from pyconfigevents import DataModel, read_config
+from pyconfigevents import RootModel, ChildModel, read_config
 
 
 # 定义应用配置模型
-class AppConfig(DataModel):
+class AppConfig(RootModel):
     name: str
     version: str
     debug: bool = False
     features: list = []
     
     # 嵌套配置
-    class ServerConfig(DataModel):
+    class ServerConfig(ChildModel):
         host: str = "localhost"
         port: int = 8000
         timeout: int = 30

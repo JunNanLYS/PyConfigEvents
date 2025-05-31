@@ -11,18 +11,18 @@ import time
 from threading import Thread
 from typing import List, Optional
 
-from pyconfigevents import DataModel
+from pyconfigevents import RootModel, ChildModel
 
 
 # 定义应用配置模型
-class LogConfig(DataModel):
+class LogConfig(ChildModel):
     level: str = "INFO"
     file_path: Optional[str] = None
     console_output: bool = True
     max_size: int = 10  # MB
 
 
-class DatabaseConfig(DataModel):
+class DatabaseConfig(ChildModel):
     host: str = "localhost"
     port: int = 3306
     username: str = "root"
@@ -32,7 +32,7 @@ class DatabaseConfig(DataModel):
     timeout: int = 30
 
 
-class AppConfig(DataModel):
+class AppConfig(RootModel):
     app_name: str = "示例应用"
     debug: bool = False
     log: LogConfig = LogConfig()

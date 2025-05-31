@@ -1,205 +1,255 @@
-import os
 import json
-import tempfile
+from typing import List, Dict
 
-from pyconfigevents import DataModel, read_config
+import pytomlpp as toml
+import yaml
+
+from pyconfigevents import RootModel, ChildModel
 
 
-def test_read_config_to_model():
-    """
-    测试从配置文件读取并转换为DataModel
-    """
-    # 定义测试用的模型类
-    class TestConfig(DataModel):
-        name: str
-        version: str
-        settings: dict
-        features: list
-        enabled: bool
-    
-    # 创建临时JSON配置文件
-    json_data = {
-        "name": "测试应用",
-        "version": "1.0.0",
-        "settings": {"theme": "dark", "language": "zh-CN"},
-        "features": ["feature1", "feature2", "feature3"],
-        "enabled": True
-    }
-    
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_json:
-        temp_json.write(json.dumps(json_data).encode('utf-8'))
-        json_path = temp_json.name
-    
-    try:
-        # 读取JSON配置并转换为模型
-        json_config_dict = read_config(json_path)
-        json_model = TestConfig(**json_config_dict)
+class TestConfigToModel:
+    def test_json_config_to_model(self, tmp_path):
+        """测试JSON配置文件转换为模型"""
+        class Config(ChildModel):
+            setting: str
+            enabled: bool
         
-        # 验证JSON转换后的模型字段
-        assert json_model.name == "测试应用"
-        assert json_model.version == "1.0.0"
-        assert json_model.settings == {"theme": "dark", "language": "zh-CN"}
-        assert json_model.features == ["feature1", "feature2", "feature3"]
-        assert json_model.enabled is True
-    finally:
-        # 清理临时文件
-        os.unlink(json_path)
-    
-    # 创建临时TOML配置文件
-    toml_content = '''
-    name = "测试应用"
-    version = "1.0.0"
-    enabled = true
-    features = ["feature1", "feature2", "feature3"]
-    
-    [settings]
-    theme = "dark"
-    language = "zh-CN"
-    '''
-    
-    with tempfile.NamedTemporaryFile(suffix=".toml", delete=False) as temp_toml:
-        temp_toml.write(toml_content.encode('utf-8'))
-        toml_path = temp_toml.name
-    
-    try:
-        # 读取TOML配置并转换为模型
-        toml_config_dict = read_config(toml_path)
-        toml_model = TestConfig(**toml_config_dict)
+        class AppModel(RootModel):
+            name: str
+            version: str
+            config: Config
         
-        # 验证TOML转换后的模型字段
-        assert toml_model.name == "测试应用"
-        assert toml_model.version == "1.0.0"
-        assert toml_model.settings == {"theme": "dark", "language": "zh-CN"}
-        assert toml_model.features == ["feature1", "feature2", "feature3"]
-        assert toml_model.enabled is True
-    finally:
-        # 清理临时文件
-        os.unlink(toml_path)
-
-
-def test_read_config_to_nested_model():
-    """
-    测试从配置文件读取并转换为嵌套的DataModel
-    """
-    # 定义嵌套的模型类
-    class Address(DataModel):
-        city: str
-        street: str
-        postal_code: str = "000000"
-    
-    class User(DataModel):
-        name: str
-        age: int
-        address: Address
-    
-    # 创建临时JSON配置文件
-    json_data = {
-        "name": "张三",
-        "age": 30,
-        "address": {
-            "city": "北京",
-            "street": "长安街",
-            "postal_code": "100000"
+        # 创建JSON配置文件
+        config_data = {
+            "name": "TestApp",
+            "version": "1.0.0",
+            "config": {
+                "setting": "default",
+                "enabled": True
+            }
         }
-    }
-    
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_json:
-        temp_json.write(json.dumps(json_data).encode('utf-8'))
-        json_path = temp_json.name
-    
-    try:
-        # 读取JSON配置
-        json_config_dict = read_config(json_path)
         
-        # 手动处理嵌套模型
-        address_data = json_config_dict.pop("address")
-        address = Address(**address_data)
-        user = User(**json_config_dict, address=address)
+        file_path = tmp_path / "config.json"
+        with open(file_path, "w") as f:
+            json.dump(config_data, f)
         
-        # 验证嵌套模型字段
-        assert user.name == "张三"
-        assert user.age == 30
-        assert user.address.city == "北京"
-        assert user.address.street == "长安街"
-        assert user.address.postal_code == "100000"
-    finally:
-        # 清理临时文件
-        os.unlink(json_path)
-
-
-def test_read_config_with_default_values():
-    """
-    测试读取配置文件时使用默认值
-    """
-    # 定义带默认值的模型类
-    class ServerConfig(DataModel):
-        host: str = "localhost"
-        port: int = 8080
-        debug: bool = False
-        max_connections: int = 100
-    
-    # 创建只包含部分字段的JSON配置
-    json_data = {
-        "host": "127.0.0.1",
-        "debug": True
-    }
-    
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_json:
-        temp_json.write(json.dumps(json_data).encode('utf-8'))
-        json_path = temp_json.name
-    
-    try:
-        # 读取配置并转换为模型
-        config_dict = read_config(json_path)
-        server_config = ServerConfig(**config_dict)
+        # 从文件加载模型
+        model = AppModel.from_file(file_path)
         
-        # 验证字段值，包括默认值
-        assert server_config.host == "127.0.0.1"  # 从配置文件读取
-        assert server_config.port == 8080  # 使用默认值
-        assert server_config.debug is True  # 从配置文件读取
-        assert server_config.max_connections == 100  # 使用默认值
-    finally:
-        # 清理临时文件
-        os.unlink(json_path)
-
-
-def test_read_config_with_inheritance():
-    """
-    测试读取配置文件并转换为继承关系的模型
-    """
-    # 定义继承关系的模型类
-    class BaseConfig(DataModel):
-        version: str = "1.0.0"
-        app_name: str
+        # 验证模型字段
+        assert model.name == "TestApp"
+        assert model.version == "1.0.0"
+        assert model.config.setting == "default"
+        assert model.config.enabled is True
+        assert model.pce_file_path == file_path
     
-    class DatabaseConfig(BaseConfig):
-        db_host: str = "localhost"
-        db_port: int = 3306
-        db_name: str
-    
-    # 创建配置文件
-    json_data = {
-        "app_name": "测试应用",
-        "version": "2.0.0",
-        "db_name": "test_db",
-        "db_host": "db.example.com"
-    }
-    
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_json:
-        temp_json.write(json.dumps(json_data).encode('utf-8'))
-        json_path = temp_json.name
-    
-    try:
-        # 读取配置并转换为模型
-        config_dict = read_config(json_path)
-        db_config = DatabaseConfig(**config_dict)
+    def test_toml_config_to_model(self, tmp_path):
+        """测试TOML配置文件转换为模型"""
+        class ServerConfig(ChildModel):
+            host: str
+            port: int
         
-        # 验证字段值
-        assert db_config.app_name == "测试应用"
-        assert db_config.version == "2.0.0"  # 覆盖默认值
-        assert db_config.db_name == "test_db"
-        assert db_config.db_host == "db.example.com"  # 覆盖默认值
-        assert db_config.db_port == 3306  # 使用默认值
-    finally:
-        # 清理临时文件
-        os.unlink(json_path)
+        class AppModel(RootModel):
+            name: str
+            server: ServerConfig
+        
+        # 创建TOML配置内容
+        config_content = """
+        name = "TestApp"
+        
+        [server]
+        host = "localhost"
+        port = 8080
+        """
+        
+        file_path = tmp_path / "config.toml"
+        with open(file_path, "w") as f:
+            f.write(config_content)
+        
+        # 从文件加载模型
+        model = AppModel.from_file(file_path)
+        
+        # 验证模型字段
+        assert model.name == "TestApp"
+        assert model.server.host == "localhost"
+        assert model.server.port == 8080
+    
+    def test_yaml_config_to_model(self, tmp_path):
+        """测试YAML配置文件转换为模型"""
+        class Feature(ChildModel):
+            name: str
+            enabled: bool
+        
+        class AppModel(RootModel):
+            name: str
+            features: List[Feature]
+        
+        # 创建YAML配置数据
+        config_data = {
+            "name": "TestApp",
+            "features": [
+                {"name": "feature1", "enabled": True},
+                {"name": "feature2", "enabled": False}
+            ]
+        }
+        
+        file_path = tmp_path / "config.yaml"
+        with open(file_path, "w") as f:
+            yaml.dump(config_data, f)
+        
+        # 从文件加载模型
+        model = AppModel.from_file(file_path)
+        
+        # 验证模型字段
+        assert model.name == "TestApp"
+        assert len(model.features) == 2
+        assert model.features[0].name == "feature1"
+        assert model.features[0].enabled is True
+        assert model.features[1].name == "feature2"
+        assert model.features[1].enabled is False
+    
+    def test_model_to_config(self, tmp_path):
+        """测试模型转换为配置文件"""
+        class Config(ChildModel):
+            setting: str
+        
+        class AppModel(RootModel):
+            name: str
+            version: str
+            config: Config
+        
+        # 创建模型实例
+        model = AppModel(
+            name="TestApp",
+            version="1.0.0",
+            config=Config(setting="default"),
+            pce_file_path=tmp_path / "config.json"
+        )
+        
+        # 保存到文件
+        model.save_to_file()
+        
+        # 读取文件内容
+        with open(tmp_path / "config.json", "r") as f:
+            saved_data = json.load(f)
+        
+        # 验证保存的内容
+        assert saved_data["name"] == "TestApp"
+        assert saved_data["version"] == "1.0.0"
+        assert saved_data["config"]["setting"] == "default"
+        
+        # 验证pce_开头的字段被移除
+        assert "pce_file_path" not in saved_data
+        assert "pce_auto_save" not in saved_data
+    
+    def test_model_to_different_formats(self, tmp_path):
+        """测试模型保存为不同格式的配置文件"""
+        class AppModel(RootModel):
+            name: str
+            version: str
+        
+        # 创建模型实例
+        model = AppModel(
+            name="TestApp",
+            version="1.0.0",
+            pce_file_path=tmp_path / "config.json"
+        )
+        
+        # 保存为JSON
+        json_path = tmp_path / "config.json"
+        model.save_to_file(json_path)
+        
+        # 保存为TOML
+        toml_path = tmp_path / "config.toml"
+        model.save_to_file(toml_path)
+        
+        # 保存为YAML
+        yaml_path = tmp_path / "config.yaml"
+        model.save_to_file(yaml_path)
+        
+        # 验证所有文件都已创建
+        assert json_path.exists()
+        assert toml_path.exists()
+        assert yaml_path.exists()
+        
+        # 读取并验证JSON内容
+        with open(json_path, "r") as f:
+            json_data = json.load(f)
+        assert json_data["name"] == "TestApp"
+        assert json_data["version"] == "1.0.0"
+        
+        # 读取并验证TOML内容
+        toml_data = toml.load(toml_path)
+        assert toml_data["name"] == "TestApp"
+        assert toml_data["version"] == "1.0.0"
+        
+        # 读取并验证YAML内容
+        with open(yaml_path, "r") as f:
+            yaml_data = yaml.safe_load(f)
+        assert yaml_data["name"] == "TestApp"
+        assert yaml_data["version"] == "1.0.0"
+    
+    def test_complex_nested_config(self, tmp_path):
+        """测试复杂嵌套配置的转换"""
+        class DeepConfig(ChildModel):
+            value: int
+        
+        class NestedConfig(ChildModel):
+            name: str
+            deep: DeepConfig
+        
+        class Config(ChildModel):
+            setting: str
+            nested: NestedConfig
+        
+        class AppModel(RootModel):
+            name: str
+            config: Config
+            items: List[str]
+            mapping: Dict[str, int]
+        
+        # 创建复杂配置数据
+        config_data = {
+            "name": "ComplexApp",
+            "config": {
+                "setting": "complex",
+                "nested": {
+                    "name": "nested_config",
+                    "deep": {
+                        "value": 42
+                    }
+                }
+            },
+            "items": ["item1", "item2", "item3"],
+            "mapping": {
+                "key1": 1,
+                "key2": 2
+            }
+        }
+        
+        file_path = tmp_path / "complex.json"
+        with open(file_path, "w") as f:
+            json.dump(config_data, f)
+        
+        # 从文件加载模型
+        model = AppModel.from_file(file_path)
+        
+        # 验证模型字段
+        assert model.name == "ComplexApp"
+        assert model.config.setting == "complex"
+        assert model.config.nested.name == "nested_config"
+        assert model.config.nested.deep.value == 42
+        assert model.items == ["item1", "item2", "item3"]
+        assert model.mapping == {"key1": 1, "key2": 2}
+        
+        # 修改模型并保存
+        model.config.nested.deep.value = 100
+        model.items.append("item4")
+        model.mapping["key3"] = 3
+        model.save_to_file()
+        
+        # 重新加载并验证
+        reloaded = AppModel.from_file(file_path)
+        assert reloaded.config.nested.deep.value == 100
+        assert "item4" in reloaded.items
+        assert reloaded.mapping["key3"] == 3
