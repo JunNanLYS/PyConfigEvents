@@ -1,6 +1,6 @@
 [project]
 name = "PyConfigEvents"
-version = "0.1.0"
+version = "0.1.1"
 description = "PyConfigEvents 是一个基于 Pydantic 的配置管理库，提供了事件驱动的配置变更通知机制。它允许您创建类型安全的配置模型，并在配置值变化时自动触发回调函数。"
 readme = "README.md"
 requires-python = ">=3.12"
