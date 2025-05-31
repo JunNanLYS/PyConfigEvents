@@ -1,53 +1,53 @@
 # PyConfigEvents
 
-PyConfigEvents 是一个基于 Pydantic 的配置管理库，提供了事件驱动的配置变更通知机制。它允许您创建类型安全的配置模型，并在配置值变化时自动触发回调函数。
+## Language
 
-* [English Documentation](README_EN.md)
+- [Chinese](README_CN.md)
 
-*PyConfigEvents is a Pydantic-based configuration management library that provides an event-driven configuration change notification mechanism. It allows you to create type-safe configuration models and automatically trigger callback functions when configuration values change.*
+PyConfigEvents is a Pydantic-based configuration management library that provides an event-driven configuration change notification mechanism. It allows you to create type-safe configuration models and automatically trigger callback functions when configuration values change.
 
-## 特性
+## Features
 
-* **类型安全**：基于 Pydantic 的类型验证系统，确保配置数据类型正确
-* **事件驱动**：支持字段变化事件的订阅和通知机制
-* **批量操作**：支持批量订阅和取消订阅字段变化事件
-* **多格式支持**：支持 JSON、TOML 和 YAML 格式的配置文件读写
-* **嵌套模型**：支持复杂的嵌套配置结构
-* **自动保存**：可选的配置自动保存功能
+- **Type Safety**: Based on Pydantic's type validation system, ensuring correct configuration data types
+- **Event-Driven**: Supports subscription and notification mechanisms for field changes
+- **Batch Operations**: Supports batch subscription and unsubscription of field change events
+- **Multi-Format Support**: Supports reading and writing configuration files in JSON, TOML, and YAML formats
+- **Nested Models**: Supports complex nested configuration structures
+- **Auto-Save**: Optional configuration auto-save functionality
 
-## 安装
+## Installation
 
 ```bash
-pip install pyconfigevents
+pip install PyConfigEvents
 ```
 
-## 快速开始
+## Quick Start
 
-### 基本用法
+### Basic Usage
 
 ```python
 from pyconfigevents import PyConfigBaseModel
 
-# 定义配置模型
+# Define configuration model
 class AppConfig(PyConfigBaseModel):
     app_name: str
     debug: bool = False
     port: int = 8000
 
-# 创建配置实例
-config = AppConfig(app_name="我的应用")
+# Create configuration instance
+config = AppConfig(app_name="My Application")
 
-# 订阅字段变化
+# Subscribe to field changes
 def on_debug_change(new_value):
-    print(f"调试模式已{'开启' if new_value else '关闭'}")
+    print(f"Debug mode has been {'enabled' if new_value else 'disabled'}")
 
 config.subscribe("debug", on_debug_change)
 
-# 修改字段值，触发回调
-config.debug = True  # 输出: 调试模式已开启
+# Modify field value, trigger callback
+config.debug = True  # Output: Debug mode has been enabled
 ```
 
-### 从配置文件加载
+### Loading from Configuration File
 
 ```python
 from pyconfigevents import RootModel, read_config
@@ -56,117 +56,119 @@ class ServerConfig(RootModel):
     host: str = "localhost"
     port: int = 8000
 
-# 从JSON文件读取配置
+# Read configuration from JSON file
 config_dict = read_config("config.json")
 server_config = ServerConfig(**config_dict)
 
-# 保存配置到文件
+# Save configuration to file
 server_config.save_to_file("config.json")
 ```
 
-## 示例列表
+## Example List
 
-### 1. 基本模型示例 (basic_model.py)
+### 1. Basic Model Example (basic_model.py)
 
-展示了如何创建和使用 PyConfigBaseModel 类，包括：
+Demonstrates how to create and use the PyConfigBaseModel class, including:
 
-* 定义继承自 PyConfigBaseModel 的配置类
-* 订阅字段变化事件
-* 使用回调函数响应字段变化
-* 批量订阅和取消订阅
+- Defining a configuration class that inherits from PyConfigBaseModel
+- Subscribing to field change events
+- Using callback functions to respond to field changes
+- Batch subscription and unsubscription
 
-运行方式：
+How to run:
 
 ```bash
 python examples/basic_model.py
 ```
 
-### 2. 配置文件转模型示例 (config_to_model.py)
+### 2. Configuration File to Model Example (config_to_model.py)
 
-展示了如何从配置文件读取数据并转换为 RootModel 对象，包括：
+Demonstrates how to read data from configuration files and convert it to RootModel objects, including:
 
-* 支持 JSON、TOML 和 YAML 格式配置文件
-* 嵌套配置模型的定义和使用
-* 配置变更事件的订阅
+- Support for JSON, TOML, and YAML format configuration files
+- Definition and use of nested configuration models
+- Subscription to configuration change events
 
-运行方式：
+How to run:
 
 ```bash
 python examples/config_to_model.py
 ```
 
-### 3. 嵌套模型示例 (nested_models.py)
+### 3. Nested Models Example (nested_models.py)
 
-展示了如何创建和使用嵌套的配置模型结构，包括：
+Demonstrates how to create and use nested configuration model structures, including:
 
-* 复杂的嵌套模型定义
-* 类型验证和类型安全
-* 嵌套模型的事件订阅
+- Complex nested model definitions
+- Type validation and type safety
+- Event subscription for nested models
 
-运行方式：
+How to run:
 
 ```bash
 python examples/nested_models.py
 ```
 
-### 4. 应用场景示例 (application_example.py)
+### 4. Application Scenario Example (application_example.py)
 
-展示了在实际应用中如何使用 PyConfigEvents，包括：
+Demonstrates how to use PyConfigEvents in actual applications, including:
 
-* 实时配置更新
-* 多组件配置管理
-* 事件通知机制
+- Real-time configuration updates
+- Multi-component configuration management
+- Event notification mechanism
 
-运行方式：
+How to run:
 
 ```bash
 python examples/application_example.py
 ```
 
-## 核心功能说明
+## Core Functionality Description
 
-### 基础模型 (PyConfigBaseModel)
+### Base Model (PyConfigBaseModel)
 
-PyConfigBaseModel 是一个基于 Pydantic 的模型类，它提供了字段变化事件的订阅机制。当模型的字段值发生变化时，会自动触发已订阅的回调函数。
+PyConfigBaseModel is a Pydantic-based model class that provides a field change event subscription mechanism. When a model's field value changes, it automatically triggers subscribed callback functions.
 
 ```python
-# 订阅单个字段
+# Subscribe to a single field
 model.subscribe("field_name", callback_function)
 
-# 批量订阅多个字段
+# Batch subscribe to multiple fields
 model.subscribe_multiple({
     "field1": callback1,
     "field2": callback2
 })
 
-# 取消订阅
+# Unsubscribe
 model.unsubscribe("field_name", callback_function)
 
-# 批量取消订阅
+# Batch unsubscribe
 model.unsubscribe_multiple({
     "field1": callback1,
     "field2": callback2
 })
 ```
 
-### 配置文件读写
+### Configuration File Reading and Writing
 
-`read_config` 函数支持从不同格式的配置文件中读取数据，目前支持 JSON、TOML 和 YAML 格式。读取的数据可以直接用于初始化 PyConfigBaseModel、RootModel 或 ChildModel 对象。
+The `read_config` function supports reading data from different format configuration files, currently supporting JSON, TOML, and YAML formats. The read data can be directly used to initialize PyConfigBaseModel, RootModel, or ChildModel objects.
 
 ```python
 from pyconfigevents import read_config
 
-# 读取配置文件
+# Read configuration file
 config_data = read_config("config.json")
 
-# 保存配置到文件
+# Save configuration to file
 from pyconfigevents.utils.save_file import save_to_file
 save_to_file(data_dict, "config.json")
 ```
 
-### 根模型 (RootModel)
+### Root Model (RootModel) and Child Model (ChildModel)
 
-RootModel 继承自 AutoSaveConfigModel，提供了从文件加载和保存到文件的功能。它可以包含 ChildModel 类型的子模型。
+RootModel inherits from AutoSaveConfigModel and adds file loading and saving capabilities. It can automatically load configuration data from a file during initialization and save changes back to the file.
+
+ChildModel is designed for nested models within a RootModel, providing event propagation and automatic saving through the parent model.
 
 ```python
 from pyconfigevents import RootModel, ChildModel
@@ -175,24 +177,25 @@ class ServerConfig(ChildModel):
     host: str = "localhost"
     port: int = 8000
 
-class MyConfig(RootModel):
+class AppConfig(RootModel):
     app_name: str
     debug: bool = False
     server: ServerConfig = ServerConfig()
 
-# 从文件加载
-config = MyConfig.from_file("config.json")
+# Load from file
+config = AppConfig.from_file("config.json")
 
-# 保存到文件
-config.save_to_file()
+# Modify and automatically save
+config.debug = True  # Automatically saved to config.json
+config.server.port = 9000  # Changes propagate and save through the root model
 ```
 
-## 最佳实践
+## Best Practices
 
-1. **类型安全**：利用 Pydantic 的类型检查功能，确保配置数据的类型正确。
-2. **运行时类型验证**：PyConfigBaseModel 在修改字段值时会自动进行类型检查，确保数据一致性。
-3. **事件驱动**：使用字段订阅机制，实现配置变更的实时响应。
-4. **模块化配置**：使用 RootModel 和 ChildModel 组织复杂的配置结构。
-5. **配置文件分离**：将配置数据存储在外部文件中，与代码分离。
-6. **批量操作**：使用批量订阅和取消订阅功能，简化代码。
-7. **自动保存**：利用 RootModel 的自动保存功能，确保配置变更即时保存到文件。
+1. **Type Safety**: Leverage Pydantic's type checking to ensure configuration data is of the correct type.
+2. **Runtime Type Validation**: PyConfigBaseModel automatically performs type checking when modifying field values to ensure data consistency.
+3. **Event-Driven**: Use the field subscription mechanism to implement real-time response to configuration changes.
+4. **Modular Configuration**: Use RootModel and ChildModel to organize complex configuration structures.
+5. **Configuration File Separation**: Store configuration data in external files, separate from code.
+6. **Batch Operations**: Use batch subscription and unsubscription to simplify code.
+7. **Auto-Save**: Utilize RootModel's auto-save functionality to ensure configuration changes are immediately saved to file.

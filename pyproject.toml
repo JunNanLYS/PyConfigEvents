@@ -1,6 +1,10 @@
+# 项目
 [project]
 name = "PyConfigEvents"
 version = "0.1.1"
+authors = [
+    { name="Your name", email="Your email" },
+]
 description = "PyConfigEvents 是一个基于 Pydantic 的配置管理库，提供了事件驱动的配置变更通知机制。它允许您创建类型安全的配置模型，并在配置值变化时自动触发回调函数。"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,3 +14,19 @@ dependencies = [
     "pytomlpp>=1.0.13",
     "pyyaml>=6.0.2",
 ]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+# 项目地址
+[project.urls]
+Homepage = "https://github.com/JunNanLYS/PyConfigEvents"
+Issues = "https://github.com/JunNanLYS/PyConfigEvents/issues"
+
+# 可选依赖
+[project.optional-dependencies]
+test = ["pytest>=8.3.5"]
+
+# 构建
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
