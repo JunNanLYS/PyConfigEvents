@@ -14,7 +14,7 @@ from typing import (
 )
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .utils.read_file import read_config
 from .utils.save_file import save_to_file
@@ -26,34 +26,38 @@ class PyConfigBaseModel(BaseModel):
     """
 
     __subscribers: Dict[str, Set[Callable]] = defaultdict(set)  # field: callback
+    model_config = ConfigDict(strict=True, validate_assignment=True)
 
-    def _is_valid_type(self, value: Any, field_type: type) -> bool:
-        """
-        检查值是否符合字段类型定义,处理Optional/Union类型,支持处理弱引用
-        """
-        if isinstance(value, weakref.ReferenceType):
-            value = value()
-        # 处理None值
-        if value is None:
-            # 检查字段是否允许None(Optional[T] 或 Union[T, None])
-            origin = get_origin(field_type)
-            if origin is Union:
-                return type(None) in get_args(field_type)
-            return field_type is type(None)  # 直接是None类型
-        
-        # 基本类型严格检查（按出现频率排序优化）
-        strict_types = (str, int, float, bool, list, tuple, dict)
-        if field_type in strict_types:
-            return type(value) is field_type
-        
-        # 处理Union类型
-        origin = get_origin(field_type)
-        if origin is Union:
-            args = get_args(field_type)
-        # 对Union内的基本类型也严格检查
-        if type(value) in strict_types:
-            return type(value) in args
-        return isinstance(value, args)
+    # def _is_valid_type(self, value: Any, field_type: type) -> bool:
+    #     """
+    #     检查值是否符合字段类型定义,处理Optional/Union类型,支持处理弱引用
+    #     """
+    #     if isinstance(value, weakref.ReferenceType):
+    #         value = value()
+    #     # 处理None值
+    #     if value is None:
+    #         # 检查字段是否允许None(Optional[T] 或 Union[T, None])
+    #         origin = get_origin(field_type)
+    #         if origin is Union:
+    #             return type(None) in get_args(field_type)
+    #         return field_type is type(None)  # 直接是None类型
+    #
+    #     # 基本类型严格检查（按出现频率排序优化）
+    #     strict_types = (str, int, float, bool, list, tuple, dict)
+    #     if field_type in strict_types:
+    #         return type(value) is field_type
+    #
+    #     # 处理Union类型
+    #     origin = get_origin(field_type)
+    #     if origin is Union:
+    #         args = get_args(field_type)
+    #         # 对Union内的基本类型也严格检查
+    #         if type(value) in strict_types:
+    #             return type(value) in args
+    #         return isinstance(value, args)
+    #
+    #     value_type = value
+    #     return isinstance(value, field_type)
 
     def subscribe(self, field: str, callback: Callable) -> None:
         """订阅字段变化的回调函数.
@@ -123,12 +127,12 @@ class PyConfigBaseModel(BaseModel):
         if value is getattr(self, name, None):
             return
         if name in self.__class__.model_fields:
-            field_type = self.__class__.model_fields[name].annotation  # 获取字段类型
-            # 检查新值是否符合字段类型
-            if not self._is_valid_type(value, field_type):
-                raise TypeError(
-                    f"Field <{name}> type {type(value)} is not compatible with {field_type}"
-                )
+            # field_type = self.__class__.model_fields[name].annotation  # 获取字段类型
+            # # 检查新值是否符合字段类型
+            # if not self._is_valid_type(value, field_type):
+            #     raise TypeError(
+            #         f"Field <{name}> type {type(value)} is not compatible with {field_type}"
+            #     )
             super().__setattr__(name, value)
             for callback in self.__subscribers[name]:
                 callback(value)
@@ -140,7 +144,7 @@ class PyConfigBaseModel(BaseModel):
 
 class AutoSaveConfigModel(PyConfigBaseModel):
     pce_auto_save: bool = False
-    pce_file_path: Path
+    pce_file_path: Optional[Path] = None
 
     def _remove_pce_key(self, data: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
         """移除包含pce_开头的健,若value为dict则递归移除"""

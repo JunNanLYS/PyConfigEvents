@@ -1,9 +1,10 @@
 """
 使用场景1
 """
+import pytest
 from pathlib import Path
 
-import pytest
+from pydantic import ValidationError
 
 from pyconfigevents import RootModel, ChildModel, read_config, save_to_file
 
@@ -56,7 +57,7 @@ def test_scenario_1(tmp_path: Path):
     assert model.Personal.author == "Nann"
     
     # 确保类型检查正常运行
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         model.Theme.size = "12"
     # 确保在类型不正确时不会修改原字段
     assert model.Theme.size == 12

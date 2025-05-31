@@ -1,6 +1,8 @@
 import pytest
 from typing import Optional, Union
 
+from pydantic import ValidationError
+
 from pyconfigevents import PyConfigBaseModel
 
 
@@ -38,10 +40,10 @@ class TestPyConfigBaseModel:
         model = TestModel(name="test", value=42)
         
         # 类型错误应该引发异常
-        with pytest.raises(TypeError):
+        with pytest.raises(ValidationError):
             model.name = 123
         
-        with pytest.raises(TypeError):
+        with pytest.raises(ValidationError):
             model.value = "not_an_int"
         
         # 验证原值未被修改
@@ -64,7 +66,7 @@ class TestPyConfigBaseModel:
         assert model.value is None
         
         # 但类型仍然需要匹配
-        with pytest.raises(TypeError):
+        with pytest.raises(ValidationError):
             model.value = "not_an_int"
     
     def test_union_fields(self):
@@ -82,7 +84,7 @@ class TestPyConfigBaseModel:
         assert model.value == "string_again"
         
         # 但不能设置为联合类型之外的类型
-        with pytest.raises(TypeError):
+        with pytest.raises(ValidationError):
             model.value = True
     
     def test_nonexistent_field(self):
