@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from pyconfigevents import RootModel, DataModel, read_config, save_to_file
+from pyconfigevents import RootModel, ChildModel, read_config, save_to_file
 
 class ConfigModel(RootModel):
-    class _Theme(DataModel):
+    class _Theme(ChildModel):
         color: str
         font: str
         size: int
     
-    class _Personal(DataModel):
+    class _Personal(ChildModel):
         language: str
         author: str
         version: str
@@ -37,7 +37,7 @@ def create_config_file(file_path: Path) -> None:
     }
     save_to_file(config_content, file_path)
 
-def check_content(model: DataModel, file_path: Path):
+def check_content(model: RootModel, file_path: Path):
     content1 = model.to_dict()
     content2 = read_config(file_path)
     assert content1 is not content2
