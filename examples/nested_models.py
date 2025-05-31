@@ -10,30 +10,32 @@
 from typing import List, Optional
 from datetime import datetime
 
-from pyconfigevents import DataModel
+from pydantic import ValidationError
+
+from pyconfigevents import RootModel, ChildModel
 
 
 # 定义嵌套模型
-class Address(DataModel):
+class Address(ChildModel):
     street: str
     city: str
     postal_code: str
     country: str = "中国"
 
 
-class Contact(DataModel):
+class Contact(ChildModel):
     email: str
     phone: Optional[str] = None
     address: Address
 
 
-class Role(DataModel):
+class Role(ChildModel):
     name: str
     permissions: List[str]
     level: int
 
 
-class User(DataModel):
+class User(RootModel):
     id: int
     username: str
     full_name: str
@@ -156,8 +158,8 @@ def main():
     
     try:
         print("\n尝试设置错误类型的字段:")
-        user.active = "yes"  # 类型不匹配，会被DataModel的__setattr__拦截
-    except TypeError as e:
+        user.active = "yes"
+    except ValidationError as e:
         print(f"类型错误: {e}")
 
 

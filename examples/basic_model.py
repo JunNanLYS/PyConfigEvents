@@ -3,14 +3,14 @@
 """
 基本模型示例
 
-这个示例展示了如何创建和使用DataModel类，包括字段订阅和事件触发机制。
+这个示例展示了如何创建和使用PyConfigBaseModel类，包括字段订阅和事件触发机制。
 """
 
-from pyconfigevents import DataModel
+from pyconfigevents import PyConfigBaseModel
 
 
-# 定义一个继承自DataModel的配置类
-class UserConfig(DataModel):
+# 定义一个继承自PyConfigBaseModel的配置类
+class UserConfig(PyConfigBaseModel):
     username: str
     age: int
     is_admin: bool = False
