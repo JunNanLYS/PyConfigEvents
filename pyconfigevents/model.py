@@ -1,20 +1,19 @@
-import weakref
 from collections import defaultdict
 from typing import (
     Any,
     Callable,
     Dict,
-    get_origin,
     override,
     Set,
     Union,
     Self,
-    get_args,
     Optional,
 )
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
+
+from pyconfigevents.event_handler import OBSERVER_MANAGER
 
 from .utils.read_file import read_config
 from .utils.save_file import save_to_file
@@ -27,37 +26,6 @@ class PyConfigBaseModel(BaseModel):
 
     __subscribers: Dict[str, Set[Callable]] = defaultdict(set)  # field: callback
     model_config = ConfigDict(strict=True, validate_assignment=True)
-
-    # def _is_valid_type(self, value: Any, field_type: type) -> bool:
-    #     """
-    #     检查值是否符合字段类型定义,处理Optional/Union类型,支持处理弱引用
-    #     """
-    #     if isinstance(value, weakref.ReferenceType):
-    #         value = value()
-    #     # 处理None值
-    #     if value is None:
-    #         # 检查字段是否允许None(Optional[T] 或 Union[T, None])
-    #         origin = get_origin(field_type)
-    #         if origin is Union:
-    #             return type(None) in get_args(field_type)
-    #         return field_type is type(None)  # 直接是None类型
-    #
-    #     # 基本类型严格检查（按出现频率排序优化）
-    #     strict_types = (str, int, float, bool, list, tuple, dict)
-    #     if field_type in strict_types:
-    #         return type(value) is field_type
-    #
-    #     # 处理Union类型
-    #     origin = get_origin(field_type)
-    #     if origin is Union:
-    #         args = get_args(field_type)
-    #         # 对Union内的基本类型也严格检查
-    #         if type(value) in strict_types:
-    #             return type(value) in args
-    #         return isinstance(value, args)
-    #
-    #     value_type = value
-    #     return isinstance(value, field_type)
 
     def subscribe(self, field: str, callback: Callable) -> None:
         """订阅字段变化的回调函数.
@@ -103,6 +71,28 @@ class PyConfigBaseModel(BaseModel):
         for field, callback in field_callbacks.items():
             self.subscribe(field, callback)
 
+    def update_fields(self, data: Dict[str, Any]) -> None:
+        """批量更新字段的值.
+
+        Args:
+            data (Dict[str, Any]): 要更新的字段和值的字典.
+
+        Raises:
+            AttributeError: 如果字段在模型中不存在.
+        """
+        for key, value in data.items():
+            # 保证字段存在
+            if key not in self.__class__.model_fields:
+                raise AttributeError(f"Field {key} does not exist")
+            # 如果value是dict,则说明是一个子模型,则递归更新
+            if isinstance(value, dict):
+                # 获取子模型
+                sub_model: "PyConfigBaseModel" = getattr(self, key)
+                # 递归更新
+                sub_model.update_fields(value)
+            else:
+                setattr(self, key, value)
+
     @property
     def subscribers(self) -> Dict[str, Set[Callable]]:
         return self.__subscribers
@@ -124,15 +114,9 @@ class PyConfigBaseModel(BaseModel):
             AttributeError: 字段不存在
         """
         # 如果值没有变化则不触发回调
-        if value is getattr(self, name, None):
+        if value is getattr(self, name, None) or value == getattr(self, name, None):
             return
         if name in self.__class__.model_fields:
-            # field_type = self.__class__.model_fields[name].annotation  # 获取字段类型
-            # # 检查新值是否符合字段类型
-            # if not self._is_valid_type(value, field_type):
-            #     raise TypeError(
-            #         f"Field <{name}> type {type(value)} is not compatible with {field_type}"
-            #     )
             super().__setattr__(name, value)
             for callback in self.__subscribers[name]:
                 callback(value)
@@ -223,7 +207,6 @@ class RootModel(AutoSaveConfigModel):
     根模型,可以放置子模型
     支持嵌套模型
     """
-
     def __init__(self, **data) -> None:
         super().__init__(**data)
         for _, value in self.__dict__.items():
@@ -256,3 +239,33 @@ class RootModel(AutoSaveConfigModel):
         config_data["pce_auto_save"] = auto_save
         instance = cls(**config_data)
         return instance
+
+
+class LiveConfigModel(RootModel):
+    """实时配置模型,支持监控配置文件变化并自动更新.
+    
+    这个类继承自RootModel,并添加了文件监控功能.
+    当配置文件发生变化时,会自动读取新的配置并更新模型.
+    使用时候需要注意一个配置文件对应一个LiveConfigModel,不要多个Model对应一个配置文件,
+    在ConfigFileEventHandler中会将文件路径与Model绑定,当文件变化时会根据绑定的Model来更新.
+    """ 
+    
+    @override
+    def update_fields(self, data: Dict[str, Any]) -> None:
+        self.enable_auto_save(False)
+        super().update_fields(data)
+        self.enable_auto_save(True)
+
+    
+    # 默认开启自动保存
+    @classmethod
+    @override
+    def from_file(cls, file_path: Path, auto_save: bool = True) -> Self:
+        instance = super().from_file(file_path, auto_save)
+        OBSERVER_MANAGER.watch(file_path, instance.update_fields)
+        return instance
+    
+    def __del__(self) -> None:
+        """调用ObserverManager移除文件监控.
+        """
+        OBSERVER_MANAGER.unwatch(self.pce_file_path)
