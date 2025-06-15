@@ -13,10 +13,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from pyconfigevents.event_handler import OBSERVER_MANAGER
+from pyconfigevents.event_handler import ObserverManager
 
 from .utils.read_file import read_config
 from .utils.save_file import save_to_file
+from .utils.file import ConfigFile
+
 
 
 class PyConfigBaseModel(BaseModel):
@@ -27,7 +29,7 @@ class PyConfigBaseModel(BaseModel):
     __subscribers: Dict[str, Set[Callable]] = defaultdict(set)  # field: callback
     model_config = ConfigDict(strict=True, validate_assignment=True)
 
-    def subscribe(self, field: str, callback: Callable) -> None:
+    def subscribe(self, field: str, callback: Callable[[Any], None]) -> None:
         """订阅字段变化的回调函数.
 
         Args:
@@ -128,7 +130,7 @@ class PyConfigBaseModel(BaseModel):
 
 class AutoSaveConfigModel(PyConfigBaseModel):
     pce_auto_save: bool = False
-    pce_file_path: Optional[Path] = None
+    pce_file: Optional[ConfigFile] = None
 
     def _remove_pce_key(self, data: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
         """移除包含pce_开头的健,若value为dict则递归移除"""
@@ -147,14 +149,6 @@ class AutoSaveConfigModel(PyConfigBaseModel):
         """启用或关闭自动保存功能"""
         self.pce_auto_save = enable
 
-    def to_dict(self) -> Dict[str, Any]:
-        """将模型转换为字典,移除pce开头的健
-
-        Returns:
-            Dict[str, Any]: 模型的字典表示
-        """
-        return self._remove_pce_key(self.model_dump())
-
     def save_to_file(self, file_path: Union[str, Path] = None) -> None:
         """将模型保存到文件
 
@@ -166,12 +160,20 @@ class AutoSaveConfigModel(PyConfigBaseModel):
             ValueError: 如果文件格式不支持
         """
         if file_path is None:
-            if self.pce_file_path is None:
-                raise ValueError("No file path specified and model has no file path")
-            file_path = self.pce_file_path
+            file_path = self.pce_file.path
 
-        data = self.to_dict()
+        data = self.model_dump()
         save_to_file(data, file_path)
+    
+    @override
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        return self._remove_pce_key(super().model_dump(**kwargs))
+
+    @override
+    def __setattr__(self, name: str, value: Any, /) -> None:
+        super().__setattr__(name, value)
+        if self.pce_auto_save:
+            self.save_to_file()
 
 
 class ChildModel(PyConfigBaseModel):
@@ -200,6 +202,12 @@ class ChildModel(PyConfigBaseModel):
         super().__setattr__(name, value)
         if self.pce_root_model is not None and self.pce_root_model.pce_auto_save:
             self.pce_root_model.save_to_file()
+    
+    @override
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        res = super().model_dump(**kwargs)
+        res.pop("pce_root_model")
+        return res
 
 
 class RootModel(AutoSaveConfigModel):
@@ -207,6 +215,7 @@ class RootModel(AutoSaveConfigModel):
     根模型,可以放置子模型
     支持嵌套模型
     """
+
     def __init__(self, **data) -> None:
         super().__init__(**data)
         for _, value in self.__dict__.items():
@@ -235,7 +244,8 @@ class RootModel(AutoSaveConfigModel):
         if isinstance(file_path, str):
             file_path = Path(file_path)
         config_data = read_config(file_path)
-        config_data["pce_file_path"] = file_path
+        file = ConfigFile(file_path)
+        config_data["pce_file"] = file
         config_data["pce_auto_save"] = auto_save
         instance = cls(**config_data)
         return instance
@@ -243,29 +253,34 @@ class RootModel(AutoSaveConfigModel):
 
 class LiveConfigModel(RootModel):
     """实时配置模型,支持监控配置文件变化并自动更新.
-    
+
     这个类继承自RootModel,并添加了文件监控功能.
     当配置文件发生变化时,会自动读取新的配置并更新模型.
     使用时候需要注意一个配置文件对应一个LiveConfigModel,不要多个Model对应一个配置文件,
     在ConfigFileEventHandler中会将文件路径与Model绑定,当文件变化时会根据绑定的Model来更新.
-    """ 
-    
-    @override
-    def update_fields(self, data: Dict[str, Any]) -> None:
-        self.enable_auto_save(False)
-        super().update_fields(data)
-        self.enable_auto_save(True)
+    """
 
-    
+    def _on_config_changed(self, data: Dict[str, Any]) -> None:
+        """当配置文件变化时调用,更新模型字段.
+        这个方法会在配置文件发生变化时被调用,并将新的配置数据传递给它.
+        子类可以重写这个方法来实现自定义的配置更新逻辑.
+        注意: 这个方法会在更新字段期间关闭自动保存以防循环调用.
+        """
+        if self.pce_auto_save:
+            self.enable_auto_save(False)
+            self.update_fields(data)
+            self.enable_auto_save(True)
+        else:
+            self.update_fields(data)
+
     # 默认开启自动保存
     @classmethod
     @override
     def from_file(cls, file_path: Path, auto_save: bool = True) -> Self:
         instance = super().from_file(file_path, auto_save)
-        OBSERVER_MANAGER.watch(file_path, instance.update_fields)
+        ObserverManager().watch(instance.pce_file, instance._on_config_changed)
         return instance
-    
+
     def __del__(self) -> None:
-        """调用ObserverManager移除文件监控.
-        """
-        OBSERVER_MANAGER.unwatch(self.pce_file_path)
+        """调用ObserverManager移除文件监控."""
+        ObserverManager().unwatch(self.pce_file)
