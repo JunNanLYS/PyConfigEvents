@@ -20,7 +20,6 @@ from .utils.save_file import save_to_file
 from .utils.file import ConfigFile
 
 
-
 class PyConfigBaseModel(BaseModel):
     """
     所有模型的基类,包含一些通用的方法
@@ -128,22 +127,23 @@ class PyConfigBaseModel(BaseModel):
             )
 
 
+def remove_pce_key(data: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
+    """移除包含pce_开头的健,若value为dict则递归移除"""
+    if isinstance(data, dict):
+        return {
+            key: remove_pce_key(value)
+            for key, value in data.items()
+            if not key.startswith("pce_")
+        }
+    elif isinstance(data, list):
+        return [remove_pce_key(item) for item in data]
+    else:
+        return data
+
+
 class AutoSaveConfigModel(PyConfigBaseModel):
     pce_auto_save: bool = False
     pce_file: Optional[ConfigFile] = None
-
-    def _remove_pce_key(self, data: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
-        """移除包含pce_开头的健,若value为dict则递归移除"""
-        if isinstance(data, dict):
-            return {
-                key: self._remove_pce_key(value)
-                for key, value in data.items()
-                if not key.startswith("pce_")
-            }
-        elif isinstance(data, list):
-            return [self._remove_pce_key(item) for item in data]
-        else:
-            return data
 
     def enable_auto_save(self, enable: bool = True) -> None:
         """启用或关闭自动保存功能"""
@@ -164,10 +164,10 @@ class AutoSaveConfigModel(PyConfigBaseModel):
 
         data = self.model_dump()
         save_to_file(data, file_path)
-    
+
     @override
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        return self._remove_pce_key(super().model_dump(**kwargs))
+        return remove_pce_key(super().model_dump(**kwargs))
 
     @override
     def __setattr__(self, name: str, value: Any, /) -> None:
@@ -202,12 +202,11 @@ class ChildModel(PyConfigBaseModel):
         super().__setattr__(name, value)
         if self.pce_root_model is not None and self.pce_root_model.pce_auto_save:
             self.pce_root_model.save_to_file()
-    
+
     @override
     def model_dump(self, **kwargs) -> dict[str, Any]:
-        res = super().model_dump(**kwargs)
-        res.pop("pce_root_model")
-        return res
+        return remove_pce_key(super().model_dump(**kwargs))
+
 
 
 class RootModel(AutoSaveConfigModel):
@@ -241,8 +240,6 @@ class RootModel(AutoSaveConfigModel):
         Returns:
             Self
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
         config_data = read_config(file_path)
         file = ConfigFile(file_path)
         config_data["pce_file"] = file
