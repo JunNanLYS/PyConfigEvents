@@ -4,9 +4,7 @@
 
 - [English](README_EN.md)
 
-PyConfigEvents 是一个基于 Pydantic 的配置管理库，提供了事件驱动的配置变更通知机制。它允许您创建类型安全的配置模型，并在配置值变化时自动触发回调函数。
-
-*PyConfigEvents is a Pydantic-based configuration management library that provides an event-driven configuration change notification mechanism. It allows you to create type-safe configuration models and automatically trigger callback functions when configuration values change.*
+PyConfigEvents 是一个基于 Pydantic 的配置管理库，提供了事件驱动的配置变更通知机制。它允许您创建类型安全的配置模型，并在配置值变化时自动触发回调函数。此外，它还支持实时监控配置文件的变化，并自动更新模型。
 
 ## 特性
 

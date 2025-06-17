@@ -88,7 +88,7 @@ def test_file_not_found():
 
 def test_unsupported_file_format(tmp_path):
     """
-    测试不支持的文件格式
+    测试读取不支持的文件格式
     """
     # 创建临时文本文件
     txt_file = tmp_path / "config.txt"

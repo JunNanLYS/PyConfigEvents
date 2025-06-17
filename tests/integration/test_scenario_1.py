@@ -39,7 +39,7 @@ def create_config_file(file_path: Path) -> None:
     save_to_file(config_content, file_path)
 
 def check_content(model: RootModel, file_path: Path):
-    content1 = model.to_dict()
+    content1 = model.model_dump()
     content2 = read_config(file_path)
     assert content1 is not content2
     assert content1 == content2
@@ -67,10 +67,10 @@ def test_scenario_1(tmp_path: Path):
     check_content(model, file_path)
     
     # 自动保存（暂未实现）
-    # model.py_cfg_events_auto_save = True
+    model.enable_auto_save(True)
     model.Theme.color = "green"
     model.Personal.language = "Chinese"
-    # check_content(model, file_path)
+    check_content(model, file_path)
     
     class InfoCard:
         def __init__(self, model: ConfigModel) -> None:
