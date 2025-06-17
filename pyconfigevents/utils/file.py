@@ -6,6 +6,8 @@ from pydantic_core import core_schema
 
 class File:
     def __init__(self, path: Path) -> None:
+        if isinstance(path, str):
+            path = Path(path)
         if not path.is_file():
             raise ValueError("path is not a file")
         self._filename = path.name
