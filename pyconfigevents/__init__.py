@@ -5,7 +5,7 @@ from .utils.save_file import save_to_file
 from .utils.file import File, ConfigFile
 
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = [
     "PyConfigBaseModel",
